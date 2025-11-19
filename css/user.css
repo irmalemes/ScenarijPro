@@ -85,24 +85,16 @@ select {
   box-sizing: border-box;
 }
 
-small {
-  color: #666;
-  font-size: 0.8em;
-  display: block;
-  margin-top: -10px;
-  margin-bottom: 10px;
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .radio-group {
   display: flex;
   gap: 15px;
   margin-bottom: 15px;
-}
-
-.checkbox-group {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .label {
@@ -127,13 +119,23 @@ small {
   background-color: #4a30cc;
 }
 
-@media (max-width: 750px) {
-  .radio-group {
-    flex-direction: column;
-    gap: 8px;
+
+@media (max-width: 500px) {
+
+  .security,
+  .notifications {
+    display: none;
   }
 
-  .settings-container {
-    padding: 20px;
+ 
+  label,
+  .label {
+    display: none;
   }
+
+  input::placeholder,
+  select::placeholder {
+    color: #a0a0a0;
+  }
+
 }
