@@ -324,38 +324,39 @@ let EditorTeksta = function (divRef) {
 
         return wrong;
     };
-
- let dajBrojRijeci = function () {
-
-    let text = ref.innerText; 
-    let tokens = text.match(WORD_TOKEN) || [];
+let dajBrojRijeci = function () {
 
     let total = 0;
     let boldCount = 0;
     let italicCount = 0;
 
-    function isNumber(w) {
-        return /^[0-9]+(\.[0-9]+)?$/.test(w);
-    }
+    const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
 
-    for (let token of tokens) {
+    while (walker.nextNode()) {
+        const node = walker.currentNode;
+        let text = node.nodeValue;
 
-        if (isNumber(token)) continue;
+        
+        const words = text.match(/[A-Za-zČĆŽŠĐčćžšđ]+(?:[-'][A-Za-zČĆŽŠĐčćžšđ]+)*/g);
+        if (!words) continue;
 
-        total++;
+        for (let w of words) {
 
-        const walker = document.createTreeWalker(ref, NodeFilter.SHOW_TEXT);
-        while (walker.nextNode()) {
-            let node = walker.currentNode;
-            if (!node.nodeValue.includes(token)) continue;
+        
+            if (/^[0-9]+(\.[0-9]+)?$/.test(w)) continue;
 
+          
+            total++;
+
+        
             let bold = false;
             let italic = false;
 
             let p = node.parentNode;
             while (p) {
-                if (p.tagName === "B" || p.tagName === "STRONG") bold = true;
-                if (p.tagName === "I" || p.tagName === "EM") italic = true;
+                const tag = p.tagName;
+                if (tag === "B" || tag === "STRONG") bold = true;
+                if (tag === "I" || tag === "EM") italic = true;
                 p = p.parentNode;
             }
 
@@ -370,6 +371,7 @@ let EditorTeksta = function (divRef) {
         italic: italicCount
     };
 };
+
 
 
     let formatirajTekst = function (k) {
