@@ -185,5 +185,172 @@ body {
 
     .page {
         padding: 30px;
+
+
+
+.editor-panel {
+    width: 100%;
+    background-color: #ffffff;
+    border-bottom: 1px solid #ddd;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.panel-left,
+.panel-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.panel-btn {
+    background-color: #5B3FFF;
+    border: none;
+    color: #fff;
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.panel-btn:hover {
+    background-color: #4a30cc;
+}
+
+.panel-btn.format {
+    background-color: #333;
+}
+
+.panel-btn.format:hover {
+    background-color: #000;
+}
+
+#ulogaInput {
+    padding: 7px 10px;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+    width: 160px;
+    font-size: 0.9em;
+}
+
+/* poruke */
+#poruke {
+    width: 100%;
+    background: #eef0ff;
+    border-left: 4px solid #5B3FFF;
+    padding: 10px 15px;
+    margin: 0;
+    font-size: 0.95em;
+    color: #333;
+    display: none; 
+}
+
+
     }
+}
+
+
+/* panel buttons */
+.panel-btn {
+    background-color: #f4f1ff;       
+    border: 1px solid #dcd4ff;
+    color: #5B3FFF;
+    padding: 7px 16px;
+    font-size: 0.9em;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s ease-in-out;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+}
+
+.panel-btn:hover {
+    background-color: #ece6ff;
+    border-color: #cfc3ff;
+    transform: translateY(-2px);
+}
+
+.panel-btn:active {
+    background-color: #ddd4ff;
+    transform: scale(0.97);
+}
+
+
+.panel-btn.format {
+    background-color: #e9e5ff;
+    border-color: #cfc3ff;
+    color: #4423ff;
+}
+
+.panel-btn.format:hover {
+    background-color: #ddd6ff;
+    border-color: #bfb2ff;
+}
+
+
+/* ispis rezultata */
+
+#poruke {
+    width: 100%;
+    background: #f8f6ff;                   
+    border-left: 5px solid #5B3FFF;        
+    padding: 15px 18px;
+    margin-top: 10px;
+    border-radius: 8px;
+    font-family: 'Courier Prime', monospace;
+    white-space: pre-wrap;                 
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    color: #333;
+    display: none;
+    font-size: 0.95em;
+}
+
+
+.poruke-title {
+    font-weight: 600;
+    color: #5B3FFF;
+    margin-bottom: 6px;
+}
+
+
+.poruke-json {
+    font-family: 'Courier Prime', monospace;
+    color: #444;
+}
+
+
+/* ime uloge */
+
+#ulogaInput {
+    padding: 8px 12px;
+    font-size: 0.9em;
+    border: 1px solid #d0c9ff;
+    border-radius: 8px;
+    background-color: #f7f5ff;
+    color: #333;
+    outline: none;
+    width: 180px;
+    transition: 0.2s ease;
+    font-family: 'Poppins', sans-serif;
+}
+
+#ulogaInput::placeholder {
+    color: #999;
+    font-style: italic;
+}
+
+#ulogaInput:hover {
+    background-color: #f1edff;
+}
+
+#ulogaInput:focus {
+    background-color: #ffffff;
+    border-color: #5B3FFF;
+    box-shadow: 0 0 6px rgba(91, 63, 255, 0.4);
 }

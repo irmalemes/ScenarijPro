@@ -27,7 +27,34 @@
         </div>
     </header>
 
+    <!-- PANEL BUTTONS -->
+    <div class="editor-panel">
+
+        <div class="panel-left">
+            <button class="panel-btn" id="btnBrojRijeci">Broj riječi</button>
+            <button class="panel-btn" id="btnUloge">Uloge</button>
+            <button class="panel-btn" id="btnPogresne">Pogrešne uloge</button>
+
+            <input type="text" id="ulogaInput" placeholder="Ime uloge...">
+
+            <button class="panel-btn" id="btnBrojLinija">Broj linija uloge</button>
+            <button class="panel-btn" id="btnScenarijUloge">Scenarij uloge</button>
+            <button class="panel-btn" id="btnGrupisi">Grupiši uloge</button>
+        </div>
+
+        <div class="panel-right">
+            <button class="panel-btn format" id="fmtBold">Bold</button>
+            <button class="panel-btn format" id="fmtItalic">Italic</button>
+            <button class="panel-btn format" id="fmtUnder">Underline</button>
+        </div>
+
+    </div>
+
+    <!-- DIV ZA PORUKE -->
+    <div id="poruke"></div>
+
     <div class="container">
+        
         <!-- SIDEBAR -->
         <aside class="sidebar">
             <h3>Scene (12)</h3>
@@ -47,9 +74,10 @@
             </ul>
         </aside>
 
-        <!-- TEKST -->
+        <!-- EDITOR -->
         <main class="editor">
-            <div class="page">
+            <div id="divEditor" class="page" contenteditable="true">
+
                 <h4 class="scene-title">EXT. LUNAR SURFACE - DAY</h4>
                 <p>
                     The vast, grey SILENCE of the moon. Dust motes hang impossibly still in the weak light. 
@@ -58,9 +86,13 @@
                 <p>
                     She stops. Breathes. Above her, the black sky is infinite.
                 </p>
+
             </div>
         </main>
     </div>
+
+    <script src="../js/EditorTeksta.js"></script>
+    <script src="../js/editor.js"></script>
 
 </body>
 </html>
