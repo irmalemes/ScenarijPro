@@ -1,106 +1,155 @@
-window.addEventListener("DOMContentLoaded", function () {
+const USER_ID = Math.floor(Math.random() * 10000) + 1;
+let SCENARIO_ID = null;
 
-    let div = document.getElementById("divEditor");
-    let editor = EditorTeksta(div);
+let lastTimestamp = 0;
+let trenutnoZakljucanaLinijaId = null;
+let editor = null;
 
+window.addEventListener("DOMContentLoaded", () => {
 
-    let porukeDiv = document.getElementById("poruke");
+    const divEditor = document.getElementById("divEditor");
+    const porukeDiv = document.getElementById("poruke");
+    const btnSpasi = document.querySelector(".save-btn");
 
-    function ispisiPoruku(msg) {
-        porukeDiv.innerText = msg;
+    function ispisiPoruku(msg, boja = "black") {
+        porukeDiv.innerHTML = `<p style="color:${boja}">${msg}</p>`;
         porukeDiv.style.display = "block";
     }
 
-    function ispisiObjekt(obj) {
-        porukeDiv.innerText = JSON.stringify(obj, null, 4);
-        porukeDiv.style.display = "block";
+
+    const hasLoadedBefore = sessionStorage.getItem("hasLoadedBefore");
+
+    if (!hasLoadedBefore) {
+        sessionStorage.setItem("hasLoadedBefore", "true");
+        SCENARIO_ID = 1;
+        ucitajScenario();
+    } else {
+        kreirajScenario();
     }
 
-    // Buttons
-    let btnBrojRijeci = document.getElementById("btnBrojRijeci");
-    let btnUloge = document.getElementById("btnUloge");
-    let btnPogresne = document.getElementById("btnPogresne");
+    /* ================== KREIRANJE SCENARIJA ================== */
+    function kreirajScenario() {
+        PoziviAjaxFetch.postScenario("THE LAST STARSHIP", (status, data) => {
+            if (status === 200) {
+                SCENARIO_ID = data.id;
+                ispisiPoruku(`Novi scenarij kreiran. ID = ${SCENARIO_ID}`, "green");
+                prikaziScenario(data);
+            } else {
+                ispisiPoruku("Greška pri kreiranju scenarija.", "red");
+            }
+        });
+    }
 
-    let btnBrojLinija = document.getElementById("btnBrojLinija");
-    let btnScenarijUloge = document.getElementById("btnScenarijUloge");
-    let btnGrupisi = document.getElementById("btnGrupisi");
+    /* ================== UČITAVANJE SCENARIJA ================== */
+    function ucitajScenario() {
+        PoziviAjaxFetch.getScenario(SCENARIO_ID, (status, scenario) => {
+            if (status === 200) {
+                prikaziScenario(scenario);
+            } else {
+                ispisiPoruku("Scenario ne postoji.", "red");
+            }
+        });
+    }
 
-    let fmtBold = document.getElementById("fmtBold");
-    let fmtItalic = document.getElementById("fmtItalic");
-    let fmtUnder = document.getElementById("fmtUnder");
+    /* ================== PRIKAZ SCENARIJA ================== */
+    function prikaziScenario(scenario) {
 
-    let ulogaInput = document.getElementById("ulogaInput");
+        const map = {};
+        scenario.content.forEach(l => map[l.lineId] = l);
 
+        let start = scenario.content.find(l =>
+            !scenario.content.some(x => x.nextLineId === l.lineId)
+        );
 
+        let html = "";
+        let curr = start;
 
-    btnBrojRijeci.addEventListener("click", function () {
-        let rez = editor.dajBrojRijeci();
-        ispisiObjekt(rez);
+        while (curr) {
+            html += `<p data-line-id="${curr.lineId}">${curr.text}</p>`;
+            curr = curr.nextLineId ? map[curr.nextLineId] : null;
+        }
+
+        divEditor.innerHTML = html;
+        editor = EditorTeksta(divEditor);
+    }
+
+    /* ================== KLIK NA LINIJU (LOCK) ================== */
+    divEditor.addEventListener("click", (e) => {
+        const p = e.target.closest("p");
+        if (!p) return;
+
+        const lineId = Number(p.dataset.lineId);
+
+        PoziviAjaxFetch.lockLine(SCENARIO_ID, lineId, USER_ID, (status, data) => {
+            if (status === 200) {
+                divEditor.querySelectorAll("p").forEach(el => el.contentEditable = false);
+                p.contentEditable = true;
+                p.focus();
+                trenutnoZakljucanaLinijaId = lineId;
+                ispisiPoruku(`Linija ${lineId} zaključana.`, "blue");
+            } else {
+                ispisiPoruku(data.message, "red");
+            }
+        });
     });
 
+    /* ================== SAVE ================== */
+    btnSpasi.addEventListener("click", () => {
 
-    
-    btnUloge.addEventListener("click", function () {
-        let rez = editor.dajUloge();
-        ispisiObjekt(rez);
-    });
-
-
-    
-    btnPogresne.addEventListener("click", function () {
-        let rez = editor.pogresnaUloga();
-        ispisiObjekt(rez);
-    });
-
-
-    
-    btnBrojLinija.addEventListener("click", function () {
-        let uloga = ulogaInput.value.trim().toUpperCase();
-
-        if (!uloga) {
-            ispisiPoruku("Molimo unesite ime uloge.");
+        if (!trenutnoZakljucanaLinijaId) {
+            ispisiPoruku("Nijedna linija nije zaključana.", "orange");
             return;
         }
 
-        let rez = editor.brojLinijaTeksta(uloga);
-        ispisiPoruku(`Uloga "${uloga}" ima ukupno ${rez} linija teksta.`);
+        const p = divEditor.querySelector(
+            `p[data-line-id="${trenutnoZakljucanaLinijaId}"]`
+        );
+        if (!p) return;
+
+        const tekst = [p.innerText];
+
+        PoziviAjaxFetch.updateLine(
+            SCENARIO_ID,
+            trenutnoZakljucanaLinijaId,
+            USER_ID,
+            tekst,
+            (status, data) => {
+                if (status === 200) {
+                    ispisiPoruku("Linija uspješno sačuvana!", "green");
+                    trenutnoZakljucanaLinijaId = null;
+                    setTimeout(ucitajScenario, 500);
+                } else {
+                    ispisiPoruku(data.message, "red");
+                }
+            }
+        );
     });
 
+    /* ================== POLLING ================== */
+    setInterval(() => {
+        if (!SCENARIO_ID) return;
 
- 
-    btnScenarijUloge.addEventListener("click", function () {
-        let uloga = ulogaInput.value.trim().toUpperCase();
+        PoziviAjaxFetch.getDeltas(SCENARIO_ID, lastTimestamp, (status, data) => {
+            if (status !== 200 || !data.deltas) return;
 
-        if (!uloga) {
-            ispisiPoruku("Molimo unesite ime uloge.");
-            return;
-        }
+            data.deltas.forEach(d => {
+                lastTimestamp = Math.max(lastTimestamp, d.timestamp);
 
-        let rez = editor.scenarijUloge(uloga);
-        ispisiObjekt(rez);
-    });
+                if (d.type === "line_update") {
+                    ucitajScenario();
+                }
 
+                if (d.type === "char_rename") {
+                    zamijeniImeLika(d.oldName, d.newName);
+                }
+            });
+        });
+    }, 3000);
 
-    btnGrupisi.addEventListener("click", function () {
-        let rez = editor.grupisiUloge();
-        ispisiObjekt(rez);
-    });
-
-
-
-    fmtBold.addEventListener("click", function () {
-        let ok = editor.formatirajTekst("bold");
-        if (!ok) ispisiPoruku("Nijedan tekst nije selektovan.");
-    });
-
-    fmtItalic.addEventListener("click", function () {
-        let ok = editor.formatirajTekst("italic");
-        if (!ok) ispisiPoruku("Nijedan tekst nije selektovan.");
-    });
-
-    fmtUnder.addEventListener("click", function () {
-        let ok = editor.formatirajTekst("underline");
-        if (!ok) ispisiPoruku("Nijedan tekst nije selektovan.");
-    });
+    function zamijeniImeLika(oldName, newName) {
+        divEditor.querySelectorAll("p").forEach(p => {
+            p.innerText = p.innerText.split(oldName).join(newName);
+        });
+    }
 
 });

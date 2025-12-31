@@ -1,0 +1,24 @@
+{
+  "name": "wtprojekat",
+  "version": "1.0.0",
+  "description": "",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://ilemes1@bitbucket.org/il23-09a-27h/wt26p19522.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://bitbucket.org/il23-09a-27h/wt26p19522/issues"
+  },
+  "homepage": "https://bitbucket.org/il23-09a-27h/wt26p19522#readme",
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
