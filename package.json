@@ -2,7 +2,6 @@
   "name": "wtprojekat",
   "version": "1.0.0",
   "description": "",
-  "type": "module",
   "main": "app.js",
   "scripts": {
     "start": "node app.js"
@@ -20,5 +19,10 @@
   "homepage": "https://bitbucket.org/il23-09a-27h/wt26p19522#readme",
   "dependencies": {
     "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "chai": "^6.2.2",
+    "mocha": "^11.7.5",
+    "supertest": "^7.2.2"
   }
 }
