@@ -1,0 +1,8 @@
+Backend je bio pisan kao ES module, a testovi su CommonJS. 
+Radi kompatibilnosti sam uklonila "type": "module" i prilagodila app.js da koristi require.
+
+package.json:
+ Uklonjena postavka "type": "module" radi kompatibilnosti sa CommonJS testovima (I1)
+
+app.js:
+ Prelazak sa ES module sintakse (import) na CommonJS (require) (I1)
