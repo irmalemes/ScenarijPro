@@ -232,18 +232,47 @@ app.get("/api/scenarios/:scenarioId/deltas", async (req, res) => {
 
 
 app.post("/api/scenarios/:scenarioId/checkpoint", async (req, res) => {
+  const { scenarioId } = req.params;
+  const { userId } = req.body;
+
+  
+  if (!userId) {
+    return res.status(400).json({ message: "userId is required" });
+  }
+
+  
+  const scenario = await Scenario.findByPk(scenarioId);
+  if (!scenario) {
+    return res.status(404).json({ message: "Scenario ne postoji!" });
+  }
+
+  
   await Checkpoint.create({
-    scenarioId: req.params.scenarioId,
+    scenarioId,
     timestamp: now()
   });
-  res.json({ message: "Checkpoint je uspjesno kreiran!" });
+
+  res.status(200).json({
+    message: "Checkpoint je uspjesno kreiran!"
+  });
 });
 
+
 app.get("/api/scenarios/:scenarioId/checkpoints", async (req, res) => {
+  const { scenarioId } = req.params;
+
+  
+  const scenario = await Scenario.findByPk(scenarioId);
+  if (!scenario) {
+    return res.status(404).json({ message: "Scenario ne postoji!" });
+  }
+
+  
   const cps = await Checkpoint.findAll({
-    where: { scenarioId: req.params.scenarioId }
+    where: { scenarioId }
   });
-  res.json(cps);
+
+  res.status(200).json(cps);
 });
 
 app.get("/api/scenarios/:scenarioId/restore/:checkpointId", async (req, res) => {
