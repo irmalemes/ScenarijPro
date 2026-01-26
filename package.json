@@ -18,7 +18,9 @@
   },
   "homepage": "https://bitbucket.org/il23-09a-27h/wt26p19522#readme",
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "mysql2": "^3.16.1",
+    "sequelize": "^6.37.7"
   },
   "devDependencies": {
     "chai": "^6.2.2",

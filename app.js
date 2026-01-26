@@ -1,6 +1,12 @@
+const { Op } = require("sequelize");
 const express = require("express");
-const fs = require("fs/promises");
 const path = require("path");
+
+const sequelize = require("./db");
+const Scenario = require("./Scenario");
+const Line = require("./Line");
+const Delta = require("./Delta");
+const Checkpoint = require("./Checkpoint");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,89 +18,88 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "html", "writing.html"));
 });
 
-const DATA_DIR = path.join(__dirname, "data");
-const SCENARIOS_DIR = path.join(DATA_DIR, "scenarios");
-const DELTAS_FILE = path.join(DATA_DIR, "deltas.json");
 
-let lineLocks = []; 
-let charLocks = []; 
+let lineLocks = [];
+let charLocks = [];
 
-async function initStorage() {
-  await fs.mkdir(SCENARIOS_DIR, { recursive: true });
-  try {
-    await fs.access(DELTAS_FILE);
-  } catch {
-    await fs.writeFile(DELTAS_FILE, JSON.stringify([], null, 2));
+const now = () => Math.floor(Date.now() / 1000);
+
+
+async function seed() {
+  const count = await Scenario.count();
+  if (count > 0) return;
+
+  const scenario = await Scenario.create({
+    id: 1,
+    title: "Potraga za izgubljenim ključem"
+  });
+
+  const lines = [
+    "NARATOR: Sunce je polako zalazilo nad starim gradom.",
+    "ALICE: Jesi li siguran da je ključ ostao u biblioteci?",
+    "BOB: To je posljednje mjesto gdje sam ga vidio prije nego što je pala noć.",
+    "ALICE: Moramo požuriti prije nego što čuvar zaključa glavna vrata.",
+    "BOB: Čekaj, čuješ li taj zvuk iza polica?",
+    "NARATOR: Iz sjene se polako pojavila nepoznata figura."
+  ];
+
+  for (let i = 0; i < lines.length; i++) {
+    await Line.create({
+      lineId: i + 1,
+      text: lines[i],
+      nextLineId: i === lines.length - 1 ? null : i + 2,
+      scenarioId: scenario.id
+    });
+
+    await Delta.create({
+      scenarioId: scenario.id,
+      type: "line_update",
+      lineId: i + 1,
+      nextLineId: i === lines.length - 1 ? null : i + 2,
+      content: lines[i],
+      timestamp: 1736520000 + i * 10
+    });
   }
+
+  await Delta.create({
+    scenarioId: 1,
+    type: "char_rename",
+    oldName: "BOB",
+    newName: "ROBERT",
+    timestamp: 1736520100
+  });
 }
 
-
-async function readScenario(id) {
-  try {
-    const data = await fs.readFile(
-      path.join(SCENARIOS_DIR, `scenario-${id}.json`),
-      "utf-8"
-    );
-    return JSON.parse(data);
-  } catch {
-    return null;
-  }
-}
-
-async function writeScenario(id, scenario) {
-  await fs.writeFile(
-    path.join(SCENARIOS_DIR, `scenario-${id}.json`),
-    JSON.stringify(scenario, null, 2)
-  );
-}
-
-function now() {
-  return Math.floor(Date.now() / 1000);
-}
 
 
 app.post("/api/scenarios", async (req, res) => {
-  await initStorage();
-
   const title = req.body?.title || "Neimenovani scenarij";
-  const files = await fs.readdir(SCENARIOS_DIR).catch(() => []);
 
-  const ids = files
-    .map(f => f.match(/scenario-(\d+)\.json/))
-    .filter(Boolean)
-    .map(m => Number(m[1]));
+  const scenario = await Scenario.create({ title });
 
-  const id = (ids.length ? Math.max(...ids) : 0) + 1;
+  await Line.create({
+    lineId: 1,
+    text: "",
+    nextLineId: null,
+    scenarioId: scenario.id
+  });
 
-  const scenario = {
-    id,
-    title,
+  res.json({
+    id: scenario.id,
+    title: scenario.title,
     content: [{ lineId: 1, nextLineId: null, text: "" }]
-  };
-
-  await writeScenario(id, scenario);
-  res.status(200).json(scenario);
+  });
 });
 
-
 app.post("/api/scenarios/:scenarioId/lines/:lineId/lock", async (req, res) => {
-  const scenarioId = Number(req.params.scenarioId);
-  const lineId = Number(req.params.lineId);
-  const userId = Number(req.body.userId);
+  const { scenarioId, lineId } = req.params;
+  const { userId } = req.body;
 
-  const scenario = await readScenario(scenarioId);
-  if (!scenario)
-    return res.status(404).json({ message: "Scenario ne postoji!" });
+  const line = await Line.findOne({ where: { scenarioId, lineId } });
+  if (!line) return res.status(404).json({ message: "Linija ne postoji!" });
 
-  const line = scenario.content.find(l => l.lineId === lineId);
-  if (!line)
-    return res.status(404).json({ message: "Linija ne postoji!" });
-
-  const existingLock = lineLocks.find(
-    l => l.scenarioId === scenarioId && l.lineId === lineId
-  );
-
-  if (existingLock && existingLock.userId !== userId)
+  const existing = lineLocks.find(l => l.scenarioId == scenarioId && l.lineId == lineId);
+  if (existing && existing.userId !== userId)
     return res.status(409).json({ message: "Linija je vec zakljucana!" });
 
   lineLocks = lineLocks.filter(l => l.userId !== userId);
@@ -104,92 +109,80 @@ app.post("/api/scenarios/:scenarioId/lines/:lineId/lock", async (req, res) => {
 });
 
 app.put("/api/scenarios/:scenarioId/lines/:lineId", async (req, res) => {
-  const scenarioId = Number(req.params.scenarioId);
-  const lineId = Number(req.params.lineId);
+  const { scenarioId, lineId } = req.params;
   const { userId, newText } = req.body;
 
   if (!Array.isArray(newText) || newText.length === 0)
     return res.status(400).json({ message: "Niz new_text ne smije biti prazan!" });
 
-  const scenario = await readScenario(scenarioId);
-  if (!scenario)
-    return res.status(404).json({ message: "Scenario ne postoji!" });
+  const anyLock = lineLocks.find(
+  l => l.scenarioId == scenarioId && l.lineId == lineId
+);
 
-  const lockIndex = lineLocks.findIndex(
-    l => l.userId === userId && l.scenarioId === scenarioId && l.lineId === lineId
-  );
-  if (lockIndex === -1)
-    return res.status(409).json({ message: "Linija nije zakljucana!" });
+if (!anyLock) {
+  return res.status(409).json({ message: "Linija nije zakljucana!" });
+}
 
-  const idx = scenario.content.findIndex(l => l.lineId === lineId);
-  if (idx === -1)
-    return res.status(404).json({ message: "Linija ne postoji!" });
+if (anyLock.userId !== userId) {
+  return res.status(409).json({ message: "Linija je vec zakljucana!" });
+}
 
-  const oldNext = scenario.content[idx].nextLineId;
 
-  
-  let wrapped = [];
-  newText.forEach(t => {
-    const words = t.split(/\s+/).filter(Boolean);
-    for (let i = 0; i < words.length; i += 20) {
-      wrapped.push(words.slice(i, i + 20).join(" "));
-    }
-  });
+const lockIndex = lineLocks.findIndex(
+  l => l.userId === userId && l.scenarioId == scenarioId && l.lineId == lineId
+);
 
-  let maxId = Math.max(...scenario.content.map(l => l.lineId), 0);
-  const newLines = wrapped.map((text, i) => ({
-    lineId: i === 0 ? lineId : ++maxId,
-    text,
-    nextLineId: null
-  }));
+  const original = await Line.findOne({ where: { scenarioId, lineId } });
+  if (!original) return res.status(404).json({ message: "Linija ne postoji!" });
 
-  for (let i = 0; i < newLines.length - 1; i++) {
-    newLines[i].nextLineId = newLines[i + 1].lineId;
-  }
-  newLines[newLines.length - 1].nextLineId = oldNext;
+  const words = newText.join(" ").split(/\s+/).filter(Boolean);
+  const chunks = [];
+  for (let i = 0; i < words.length; i += 20)
+    chunks.push(words.slice(i, i + 20).join(" "));
 
-  scenario.content.splice(idx, 1, ...newLines);
+  let maxId = await Line.max("lineId", { where: { scenarioId } });
+  let prevNext = original.nextLineId;
 
-  const deltas = JSON.parse(await fs.readFile(DELTAS_FILE, "utf-8"));
-  newLines.forEach(l => {
-    deltas.push({
+  await original.destroy();
+
+  for (let i = 0; i < chunks.length; i++) {
+    const id = i === 0 ? Number(lineId) : ++maxId;
+    const next = i < chunks.length - 1 ? maxId + 1 : prevNext;
+
+    await Line.create({
+      lineId: id,
+      text: chunks[i],
+      nextLineId: next,
+      scenarioId
+    });
+
+    await Delta.create({
       scenarioId,
       type: "line_update",
-      lineId: l.lineId,
-      nextLineId: l.nextLineId,
-      content: l.text,
+      lineId: id,
+      nextLineId: next,
+      content: chunks[i],
       timestamp: now()
     });
-  });
-
-  await fs.writeFile(DELTAS_FILE, JSON.stringify(deltas, null, 2));
-  await writeScenario(scenarioId, scenario);
+  }
 
   lineLocks.splice(lockIndex, 1);
   res.json({ message: "Linija je uspjesno azurirana!" });
 });
 
-
 app.get("/api/scenarios/:scenarioId", async (req, res) => {
-  const scenario = await readScenario(Number(req.params.scenarioId));
-  if (!scenario)
-    return res.status(404).json({ message: "Scenario ne postoji!" });
-  res.json(scenario);
+  const scenario = await Scenario.findByPk(req.params.scenarioId);
+  if (!scenario) return res.status(404).json({ message: "Scenario ne postoji!" });
+
+  const lines = await Line.findAll({ where: { scenarioId: scenario.id } });
+  res.json({ id: scenario.id, title: scenario.title, content: lines });
 });
 
-
 app.post("/api/scenarios/:scenarioId/characters/lock", async (req, res) => {
-  const scenarioId = Number(req.params.scenarioId);
+  const { scenarioId } = req.params;
   const { userId, characterName } = req.body;
 
-  const scenario = await readScenario(scenarioId);
-  if (!scenario)
-    return res.status(404).json({ message: "Scenario ne postoji!" });
-
-  const existing = charLocks.find(
-    c => c.scenarioId === scenarioId && c.characterName === characterName
-  );
-  if (existing)
+  if (charLocks.find(c => c.scenarioId == scenarioId && c.characterName === characterName))
     return res.status(409).json({ message: "Ime lika je vec zakljucano!" });
 
   charLocks.push({ userId, scenarioId, characterName });
@@ -197,28 +190,22 @@ app.post("/api/scenarios/:scenarioId/characters/lock", async (req, res) => {
 });
 
 app.post("/api/scenarios/:scenarioId/characters/update", async (req, res) => {
-  const scenarioId = Number(req.params.scenarioId);
+  const { scenarioId } = req.params;
   const { userId, oldName, newName } = req.body;
 
-  const scenario = await readScenario(scenarioId);
-  if (!scenario)
-    return res.status(404).json({ message: "Scenario ne postoji!" });
-
-  const lockIndex = charLocks.findIndex(
-    c =>
-      c.userId === userId &&
-      c.scenarioId === scenarioId &&
-      c.characterName === oldName
+  const idx = charLocks.findIndex(
+    c => c.userId === userId && c.scenarioId == scenarioId && c.characterName === oldName
   );
-  if (lockIndex === -1)
+  if (idx === -1)
     return res.status(409).json({ message: "Ime lika nije zakljucano!" });
 
-  scenario.content.forEach(l => {
+  const lines = await Line.findAll({ where: { scenarioId } });
+  for (const l of lines) {
     l.text = l.text.split(oldName).join(newName);
-  });
+    await l.save();
+  }
 
-  const deltas = JSON.parse(await fs.readFile(DELTAS_FILE, "utf-8"));
-  deltas.push({
+  await Delta.create({
     scenarioId,
     type: "char_rename",
     oldName,
@@ -226,32 +213,109 @@ app.post("/api/scenarios/:scenarioId/characters/update", async (req, res) => {
     timestamp: now()
   });
 
-  await fs.writeFile(DELTAS_FILE, JSON.stringify(deltas, null, 2));
-  await writeScenario(scenarioId, scenario);
-
-  charLocks.splice(lockIndex, 1);
+  charLocks.splice(idx, 1);
   res.json({ message: "Ime lika je uspjesno promijenjeno!" });
 });
 
-
 app.get("/api/scenarios/:scenarioId/deltas", async (req, res) => {
-  const scenarioId = Number(req.params.scenarioId);
+  const { scenarioId } = req.params;
   const since = Number(req.query.since) || 0;
 
-  const scenario = await readScenario(scenarioId);
-  if (!scenario)
-    return res.status(404).json({ message: "Scenario ne postoji!" });
+  const deltas = await Delta.findAll({
+    where: { scenarioId, timestamp: { [Op.gt]: since } },
+    order: [["timestamp", "ASC"]]
+  });
 
-  const deltas = JSON.parse(await fs.readFile(DELTAS_FILE, "utf-8"));
+  res.json({ deltas });
+});
+
+
+
+app.post("/api/scenarios/:scenarioId/checkpoint", async (req, res) => {
+  await Checkpoint.create({
+    scenarioId: req.params.scenarioId,
+    timestamp: now()
+  });
+  res.json({ message: "Checkpoint je uspjesno kreiran!" });
+});
+
+app.get("/api/scenarios/:scenarioId/checkpoints", async (req, res) => {
+  const cps = await Checkpoint.findAll({
+    where: { scenarioId: req.params.scenarioId }
+  });
+  res.json(cps);
+});
+
+app.get("/api/scenarios/:scenarioId/restore/:checkpointId", async (req, res) => {
+  const scenarioId = Number(req.params.scenarioId);
+  const checkpointId = Number(req.params.checkpointId);
+
+  
+  const scenario = await Scenario.findByPk(scenarioId);
+  if (!scenario) {
+    return res.status(404).json({ message: "Scenario ne postoji!" });
+  }
+
+
+  const checkpoint = await Checkpoint.findOne({
+    where: { id: checkpointId, scenarioId }
+  });
+
+  if (!checkpoint) {
+    return res.status(404).json({ message: "Checkpoint ne postoji!" });
+  }
+
+  const checkpointTimestamp = checkpoint.timestamp;
+
+  const lines = await Line.findAll({
+    where: { scenarioId },
+    order: [["lineId", "ASC"]]
+  });
+
+  
+  let content = lines.map(l => ({
+    lineId: l.lineId,
+    text: l.text,
+    nextLineId: l.nextLineId
+  }));
+
+
+  const deltas = await Delta.findAll({
+    where: {
+      scenarioId,
+      timestamp: { [Op.lte]: checkpointTimestamp }
+    },
+    order: [["timestamp", "ASC"]]
+  });
+
+
+  deltas.forEach(delta => {
+    if (delta.type === "line_update") {
+      const idx = content.findIndex(l => l.lineId === delta.lineId);
+      if (idx !== -1) {
+        content[idx].text = delta.content;
+        content[idx].nextLineId = delta.nextLineId;
+      }
+    }
+
+    if (delta.type === "char_rename") {
+      content.forEach(l => {
+        l.text = l.text.split(delta.oldName).join(delta.newName);
+      });
+    }
+  });
+
   res.json({
-    deltas: deltas
-      .filter(d => d.scenarioId === scenarioId && d.timestamp > since)
-      .sort((a, b) => a.timestamp - b.timestamp)
+    id: scenario.id,
+    title: scenario.title,
+    content
   });
 });
 
 
-initStorage().then(() => {
+
+sequelize.sync({ force: true }).then(async () => {
+  await seed();
   app.listen(PORT, () =>
     console.log(`Server running on http://localhost:${PORT}`)
   );
