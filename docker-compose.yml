@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  mysql-db:
+    image: mysql
+    container_name: mysql-db
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_DATABASE=wt26
+    ports:
+      - "3307:3306"
+    networks:
+      - app-network
+
+  node-app:
+    image: ilemes1/arm-zadaca
+    container_name: node-app
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mysql-db
+    restart: on-failure:10
+    networks:
+      - app-network
+
+networks:
+  app-network:
